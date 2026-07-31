@@ -26,3 +26,53 @@ services:
       - korp-network
     depends_on:
       - http-server-projeto-korp
+
+# nginx-exporter
+  nginx-exporter:
+    image: nginx/nginx-prometheus-exporter:latest
+    container_name: nginx-exporter
+    command: 
+      -nginx.scrape-uri http://nginx/nginx_status
+    networks:
+      - korp-network
+    depends_on:
+      - nginx
+
+#blackbox-exporter
+  blackbox-exporter:
+    image: prom/blackbox-exporter:latest
+    container_name: blackbox-exporter
+    volumes:
+      - ./prometheus/blackbox.yml:/etc/blackbox_exporter/config.yml
+    networks:
+      - korp-network
+
+#prometheus
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+    networks:
+      - korp-network
+    depends_on:
+      - nginx-exporter
+      - blackbox-exporter
+
+#grafana
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=korpadmin2026
+    networks:
+      - korp-network
+    depends_on:
+      - prometheus
