@@ -9,7 +9,6 @@ import (
 
 type Response struct {
 	Nome    string `json:"nome"`
-	Versao  string `json:"versao"`
 	Horario string `json:"horario"`
 }
 
@@ -17,7 +16,6 @@ func projetoKorp(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	response := Response{
 		Nome:    "Projeto Korp",
-		Versao:  "1.0",
 		Horario: time.Now().UTC().Format(time.RFC3339),
 	}
 	json.NewEncoder(w).Encode(response)
