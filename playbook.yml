@@ -1,0 +1,91 @@
+---
+- name: "Provisionamento e deploy Korp"
+  hosts: localhost
+  connection: local
+  become: true
+
+  tasks:
+    - name: "Limpar sources docker conflitantes"
+      file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - /etc/apt/sources.list.d/docker.list
+        - /etc/apt/sources.list.d/docker-archive-keyring.list
+        - /etc/apt/sources.list.d/download_docker_com_linux_ubuntu.list
+
+    - name: "Atualizar cache de pacotes"
+      apt:
+        update_cache: yes
+      ignore_errors: true
+
+    - name : "Pacotes e dependencias"
+      apt:
+        name: 
+          - curl
+          - ca-certificates
+          - gnupg
+          - python3-pip
+        state: present
+        update_cache: yes
+
+    - name: "Diretorio de keyrings"
+      file:
+        path: /etc/apt/keyrings
+        state: directory
+        mode: '0755'
+
+    - name: "Adicionar chave GPG Docker"
+      get_url:
+        url: https://download.docker.com/linux/ubuntu/gpg
+        dest: /etc/apt/trusted.gpg.d/docker.asc
+        mode: '0644'
+
+    - name: "Adicionar repositório Docker"
+      apt_repository:
+        repo: deb [arch=amd64] https://download.docker.com/linux/ubuntu {{ ansible_distribution_release }} stable
+        state: present
+      ignore_errors: true           
+      register: docker_repo_result 
+
+    - name: "Notificar sobre erro na adição do repositório"
+      ansible.builtin.debug:
+        msg: "Aviso: Houve uma falha ao adicionar o repositório do Docker, mas a execução continuou. Erro: {{ docker_repo_result.msg | default('Erro desconhecido') }}"
+      when: docker_repo_result.failed
+
+    - name: "Instalar Docker Engine e Compose"
+      apt:
+        name:
+          - docker-ce
+          - docker-ce-cli
+          - docker-compose-plugin
+        state: present
+    
+    - name: "Executar docker"
+      service:
+        name: docker
+        state: started
+        enabled: yes
+    
+    - name: "Executar docker compose"
+      command : docker compose up -d --build
+      args:
+        chdir: "{{ playbook_dir }}"
+
+    - name: "Espera aplicação subir"
+      wait_for:
+        port: 80
+        delay: 3
+        timeout: 30
+    
+    - name: "Validar deploy"
+      uri:
+        url: http://localhost/projeto-korp
+        method: GET
+        return_content: yes
+      register: response
+
+    - name: "Exibir resposta"
+      debug:
+        msg: "Resposta: {{ response.content }}"
+        
